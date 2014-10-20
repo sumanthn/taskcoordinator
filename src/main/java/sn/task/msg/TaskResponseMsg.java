@@ -44,6 +44,10 @@ public class TaskResponseMsg  {
         this.msg = msg;
     }
 
+    public TaskResponse getTaskResponse() {
+        return taskResponse;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -64,5 +68,13 @@ public class TaskResponseMsg  {
         return result;
     }
 
-
+    @Override
+    public String toString() {
+        return "TaskResponseMsg{" +
+                "taskId=" + taskId +
+                ", taskState=" + taskState +
+                ", taskResponse=" + taskResponse +
+                ", msg='" + msg + '\'' +
+                '}';
+    }
 }

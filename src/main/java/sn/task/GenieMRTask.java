@@ -35,7 +35,6 @@ public class GenieMRTask extends RunnableTask {
 
     private final GenieMRTaskParameters taskParameters;
     private static final Random random = new Random();
-    TaskState curState = TaskState.NOT_READY;
     String genieJobId;
     String statusUrl;
     String killUrl;

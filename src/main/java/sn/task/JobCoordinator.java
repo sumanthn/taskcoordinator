@@ -92,15 +92,9 @@ public class JobCoordinator extends UntypedActor {
                 case STATUS:
 
 
-                    TaskInstance nextTaskInstance = getNextTask();
-                    if (nextTaskInstance!=null){
-                        logger.info("Running task " + nextTaskInstance.getId());
-                        //check current task status
-
-
-                    }else{
-                        logger.info("No tasks pending, move on");
-                    }
+                   if (workerTaskRef!=null){
+                       workerTaskRef.tell(TaskCommand.STATUS,self());
+                   }
                     scheduleTickMsg();
                     break;
 
@@ -108,23 +102,8 @@ public class JobCoordinator extends UntypedActor {
                 case RUN:
 
                     jobStatus = JobStatus.RUNNING;
-                    //schedule task one by one
-                    TaskInstance taskInstance = getNextTask();
-                    if (taskInstance!=null){
 
-                        logger.info("Running task " + taskInstance.getId());
-
-                        workerTaskRef =getWorkerTask(taskInstance);
-                        if (workerTaskRef!=null){
-                            workerTaskRef.tell(TaskCommand.INIT,self());
-                            //TODO: wait for SUBMIT and then workout
-                            workerTaskRef.tell(TaskCommand.RUN,self());
-                            curTaskInstanceId = taskInstance.getId();
-                            taskStates.put(curTaskInstanceId,TaskState.RUNNING);
-                        }
-                    }else{
-                        logger.info("No tasks pending, move on");
-                    }
+                    runNextTask();
                     reactOnTick=true;
                     logger.info("JobInstance:" + jobInstance.getId()  +" is started");
                     break;
@@ -133,6 +112,19 @@ public class JobCoordinator extends UntypedActor {
                     jobStatus = JobStatus.COMPLETE;
                     logger.info("JobInstance:" + jobInstance.getId() + " Cancelled");
 
+                    break;
+                case COMPLETE:
+                    jobStatus = JobStatus.COMPLETE;
+                    for(Long taskId : taskStates.keySet()){
+
+                        logger.info("Task " + taskId + " State " + taskStates.get(taskId));
+                    }
+                    logger.info("Tasks are completed, run through post completion ");
+                    for(ActorRef actorRef : getContext().getChildren()){
+                        actorRef.tell(TaskCommand.DESTROY,self());
+                    }
+                    getContext().stop(self());
+                    break;
             }
 
         }else if (msg instanceof TickMsg){
@@ -140,15 +132,66 @@ public class JobCoordinator extends UntypedActor {
             scheduleTickMsg();
 
 
-        }else if (msg instanceof TaskResponseMsg){
-            //get task id and make your own inferences
+        }else {
+            if (msg instanceof TaskResponseMsg) {
+                //get task id and make your own inferences
 
 
+                TaskResponseMsg responseMsg = (TaskResponseMsg) msg;
+                System.out.println("Arrived response as " + responseMsg);
+
+                switch (responseMsg.getTaskResponse()) {
 
 
+                    case SUCCESS:
+                        taskStates.put(responseMsg.getTaskId(),responseMsg.getTaskState());
+                        if (responseMsg.getTaskState() == TaskState.SUCCESS){
+                            //run next task, based on response
+                            logger.info(responseMsg.getTaskId() + " is completed");
+                            runNextTask();
+                        }
 
+                        break;
+
+
+                    case TIMEOUT:
+                        break;
+                    case RUNNING:
+                        taskStates.put(responseMsg.getTaskId(),responseMsg.getTaskState());
+                        logger.info(responseMsg.getTaskId() + " is still running");
+                        break;
+                    case ERROR:
+
+                    case FAILED:
+                        taskStates.put(responseMsg.getTaskId(),responseMsg.getTaskState());
+                        if (responseMsg.getTaskState() == TaskState.FAILED){
+                            logger.info("Failed task " + responseMsg.getTaskId());
+                            getContext().self().tell( JobCommand.COMPLETE,self());
+                        }
+
+                        break;
+                }
+
+
+            }
         }
 
+
+    }
+    private void runNextTask(){
+        TaskInstance nextTaskInstance = getNextTask();
+        if (nextTaskInstance!=null) {
+            logger.info("Running task " +  nextTaskInstance.getId() + " " + nextTaskInstance.getTaskType());
+            workerTaskRef = getWorkerTask(nextTaskInstance);
+            workerTaskRef.tell(TaskCommand.INIT, self());
+            //TODO: wait for SUBMIT and then workout
+            workerTaskRef.tell(TaskCommand.RUN, self());
+            curTaskInstanceId = nextTaskInstance.getId();
+            taskStates.put(curTaskInstanceId, TaskState.RUNNING);
+        }else{
+            logger.info("No more tasks to run");
+            getContext().self().tell( JobCommand.COMPLETE,self());
+        }
 
     }
     //this should be FACTORY
@@ -177,14 +220,16 @@ public class JobCoordinator extends UntypedActor {
     public static void main(String [] args){
         ActorSystem _system = ActorSystem.create("TaskCoordinator");
 
+
         JobInstance jobInstance = new JobInstance();
+
         jobInstance.setJobDefId("GenieComboRunner");
 
         TaskInstance genieTask =  new TaskInstance(10L,TaskType.GENIE_MR);
         final HttpServiceParams serviceParams = new HttpServiceParams("http", "localhost", 8080, "/genie/v0/jobs");
         GenieMRTaskParameters mrTaskParameters = new GenieMRTaskParameters(serviceParams, "Sumanth", "hadoop",
                 "jar /tmp/hdptest.jar cruncher.TxnOperations /txndatain /txnout5",
-                "file:///tmp/hdptest.jar",10,3);
+                "file:///tmp/hdptest.jar",60,3);
         genieTask.setTaskParameters(mrTaskParameters);
 
         CommandTaskParameters cmdTaskParams =
@@ -195,7 +240,7 @@ public class JobCoordinator extends UntypedActor {
 
         jobInstance.getTaskInstances().add(genieTask);
         jobInstance.getTaskInstances().add(commandTask);
-        ActorRef cordRef = _system.actorOf(JobCoordinator.create(jobInstance));
+        ActorRef cordRef = _system.actorOf(JobCoordinator.create(jobInstance),"JobCoordinator-"+jobInstance.getId());
         cordRef.tell(JobCommand.INIT,null);
         cordRef.tell(JobCommand.RUN,null);
 

@@ -8,5 +8,6 @@ public enum JobCommand {
     RUN,
     STATUS,
     SUSPEND,
+    COMPLETE,
     CANCEL
 }
