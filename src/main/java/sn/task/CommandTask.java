@@ -86,7 +86,7 @@ public class CommandTask  extends  RunnableTask{
 
 
                         //this is very fast so block
-                        Thread.sleep(1*20);
+                        Thread.sleep(20*20);
                         //TODO: change this sleep to onComplete
                         if  ( (SubTaskResponse)(taskCompleteStatus.value().get().get())  == SubTaskResponse.SUCCESS){
                             logger.info("Command executed successfully");

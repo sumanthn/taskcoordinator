@@ -20,6 +20,10 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * There can be many Job co-ordinator
+ * Simple sequential
+ * DAG based
+ * Multi-parallel co-ordinator
  * Created by Sumanth on 20/10/14.
  */
 public class JobCoordinator extends UntypedActor {
@@ -225,21 +229,29 @@ public class JobCoordinator extends UntypedActor {
 
         jobInstance.setJobDefId("GenieComboRunner");
 
-        TaskInstance genieTask =  new TaskInstance(10L,TaskType.GENIE_MR);
+        CommandTaskParameters cleanDirTaskParams =
+                new CommandTaskParameters("python","/Users/Sumanth/scripts/cleandir.py",60,2);
+
+        TaskInstance cleanupTask = new TaskInstance(4L, TaskType.COMMAND);
+        cleanupTask.setTaskParameters(cleanDirTaskParams);
+
+        TaskInstance genieTask =  new TaskInstance(9L,TaskType.GENIE_MR);
         final HttpServiceParams serviceParams = new HttpServiceParams("http", "localhost", 8080, "/genie/v0/jobs");
         GenieMRTaskParameters mrTaskParameters = new GenieMRTaskParameters(serviceParams, "Sumanth", "hadoop",
-                "jar /tmp/hdptest.jar cruncher.TxnOperations /txndatain /txnout5",
-                "file:///tmp/hdptest.jar",60,3);
+                "jar /tmp/hdptest.jar cruncher.TxnOperations /txndatain /faultyserveripdataout",
+                "file:///tmp/hdptest.jar",120*10,3);
         genieTask.setTaskParameters(mrTaskParameters);
 
-        CommandTaskParameters cmdTaskParams =
-                new CommandTaskParameters("python","/Users/Sumanth/scripts/tst1.py",60,2);
+        CommandTaskParameters stageResultsTaskParams =
+                new CommandTaskParameters("python","/Users/Sumanth/scripts/stageresults.py",60,2);
 
-        TaskInstance commandTask = new TaskInstance(48L, TaskType.COMMAND);
-        commandTask.setTaskParameters(cmdTaskParams);
+        TaskInstance stageResultTask = new TaskInstance(25L, TaskType.COMMAND);
+        stageResultTask.setTaskParameters(stageResultsTaskParams);
 
+        jobInstance.getTaskInstances().add(cleanupTask);
         jobInstance.getTaskInstances().add(genieTask);
-        jobInstance.getTaskInstances().add(commandTask);
+        jobInstance.getTaskInstances().add(stageResultTask);
+
         ActorRef cordRef = _system.actorOf(JobCoordinator.create(jobInstance),"JobCoordinator-"+jobInstance.getId());
         cordRef.tell(JobCommand.INIT,null);
         cordRef.tell(JobCommand.RUN,null);
