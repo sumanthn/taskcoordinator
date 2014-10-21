@@ -195,6 +195,7 @@ public class JobCoordinator extends UntypedActor {
         }else{
             logger.info("No more tasks to run");
             getContext().self().tell( JobCommand.COMPLETE,self());
+            getContext().stop(self());
         }
 
     }
@@ -255,6 +256,10 @@ public class JobCoordinator extends UntypedActor {
         ActorRef cordRef = _system.actorOf(JobCoordinator.create(jobInstance),"JobCoordinator-"+jobInstance.getId());
         cordRef.tell(JobCommand.INIT,null);
         cordRef.tell(JobCommand.RUN,null);
+
+    }
+
+    public void destroyJob(final long jobInstanceId){
 
     }
 }

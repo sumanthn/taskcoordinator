@@ -6,7 +6,10 @@ package sn.common;
 public class TaskInstance {
 
     private long id;
+    private String taskUuid;
     private TaskType taskType;
+
+    //can decorate with schedule information
 
     private TaskParameters taskParameters;
 
@@ -37,6 +40,18 @@ public class TaskInstance {
 
     public void setTaskParameters(TaskParameters taskParameters) {
         this.taskParameters = taskParameters;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getTaskUuid() {
+        return taskUuid;
+    }
+
+    public void setTaskUuid(String taskUuid) {
+        this.taskUuid = taskUuid;
     }
 
     @Override

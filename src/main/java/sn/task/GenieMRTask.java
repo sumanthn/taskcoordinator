@@ -280,7 +280,7 @@ public class GenieMRTask extends RunnableTask {
         final HttpServiceParams serviceParams = new HttpServiceParams("http", "localhost", 8080, "/genie/v0/jobs");
         GenieMRTaskParameters mrTaskParameters = new GenieMRTaskParameters(serviceParams, "Sumanth", "hadoop",
                 "jar /tmp/hdptest.jar cruncher.TxnOperations /txndatain /txnout5",
-                "file:///tmp/hdptest.jar",10,3);
+                "file:///tmp/hdptest.jar",1200,3);
 /*
 
         GenieMRTask mrTask = new GenieMRTask(mrTaskParameters);
